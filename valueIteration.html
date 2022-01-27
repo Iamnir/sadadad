@@ -1,0 +1,411 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>valueIteration</title><meta name="generator" content="MATLAB 9.10"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2022-01-27"><meta name="DC.source" content="valueIteration.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; }
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+span.typesection { color:#A0522D }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><pre class="codeinput"><span class="comment">% Bellman equation v(k) = max u(f(k)-k')+Bv(k')</span>
+<span class="comment">% log utility u=log(c) and f(k)=Ak^alpha+(a-delta)k</span>
+<span class="comment">% Find the value and policy functions</span>
+
+
+clear <span class="string">all</span>;
+clc;
+
+<span class="comment">% Set Variables</span>
+ALPHA    = 0.34;
+BETA     = 0.99;
+DELTA    = 0.25;
+A        = 1;
+Kss     = ((A.*ALPHA)./((1/BETA)-(1-DELTA))).^(1/(1-ALPHA));
+
+<span class="comment">% Setting up the grid</span>
+NK       = 100;
+ITER     = 0;
+KMIN     = 2*Kss/NK;
+KMAX     = 2*Kss;
+X        = (KMIN:(KMAX-KMIN)/(NK-1):KMAX)';
+
+<span class="comment">% Analytical values of policy and value functions</span>
+realV    = 4*((4/3)*log(10)+log(3/4)+(1/3)*log(1/4))+(4/9)*log(X);
+realG    = 2.5*X.^ALPHA;
+
+<span class="comment">% Initialize a few vectors</span>
+v1       = zeros(NK,1);
+g1       = zeros(NK,1);
+f0       = zeros(NK,1);
+
+<span class="comment">% Convergence tolerance</span>
+DIF     = 1;
+EPS      = 1e-6;
+
+<span class="keyword">while</span> DIF&gt;EPS
+    ITER = ITER + 1;
+
+    <span class="keyword">for</span> i=1:NK
+        <span class="comment">% Prevent wild values in gamma</span>
+        gamma = X &lt;= A*X(i)^ALPHA+(1-DELTA)*X(i);
+        kp    = X(gamma);
+        kt    = ones(length(kp),1)*X(i);
+
+        c     = A*kt.^ALPHA+(1-DELTA)*kt-kp;
+        u     = log(c);
+
+        f1    = u + BETA*f0(gamma);
+        [v1(i),g1(i)] = max(f1);
+    <span class="keyword">end</span>
+    gk = X(g1);
+    DIF = max(abs(v1-f0));
+    meanresidv(ITER) = mean(abs(real(realV-v1)));
+    meanresidg(ITER) = mean(abs(real(realG-gk)));
+    f0 = v1;
+<span class="keyword">end</span>
+
+h=figure(1);
+subplot(2,1,1);
+plot(X,f0,X,realV,<span class="string">'--'</span>), hold <span class="string">on</span>;
+xlabel (<span class="string">'k'</span>), ylabel (<span class="string">'Value Function at k'</span>);
+grid <span class="string">on</span>, grid <span class="string">minor</span>;
+title(sprintf(<span class="string">'1.(b) Value Function v(k) (N=%d, delta=%.1f, mean resid=%.5f)'</span>, NK, DELTA, mean(meanresidv)));
+
+subplot(2,1,2);
+plot(X,gk,X,realG,<span class="string">'--'</span>), hold <span class="string">on</span>;
+xlabel (<span class="string">'k'</span>), ylabel (<span class="string">'Policy Function at k'</span>);
+grid <span class="string">on</span>, grid <span class="string">minor</span>;
+title(sprintf(<span class="string">'1.(b) Policy Function g(k) (N=%d, delta=%.1f, mean resid=%.5f)'</span>, NK, DELTA, mean(meanresidg)));
+
+
+<span class="comment">% N = 500.</span>
+
+NK       = 500;
+ITER     = 0;
+
+KMIN     = 2*Kss/NK;
+KMAX     = 2*Kss;
+X        = (KMIN:(KMAX-KMIN)/(NK-1):KMAX)';
+
+realV    = 4*((4/3)*log(10)+log(3/4)+(1/3)*log(1/4))+(4/9)*log(X);
+realG    = 2.5*X.^ALPHA;
+
+v1       = zeros(NK,1);
+g1       = zeros(NK,1);
+f0       = zeros(NK,1);
+
+DIF     = 1;
+
+<span class="keyword">while</span> DIF&gt;EPS
+    ITER = ITER + 1;
+
+    <span class="keyword">for</span> i=1:NK
+        gamma = X &lt;= A*X(i)^ALPHA+(1-DELTA)*X(i);
+        kp    = X(gamma);
+        kt    = ones(length(kp),1)*X(i);
+
+        c     = A*kt.^ALPHA+(1-DELTA)*kt-kp;
+        u     = log(c);
+
+        f1    = u + BETA*f0(gamma);
+        [v1(i),g1(i)] = max(f1);
+    <span class="keyword">end</span>
+    gk = X(g1);
+    DIF = max(abs(v1-f0));
+    meanresidv(ITER) = mean(abs(real(realV-v1)));
+    meanresidg(ITER) = mean(abs(real(realG-gk)));
+    f0 = v1;
+<span class="keyword">end</span>
+
+h=figure(2);
+subplot(2,1,1);
+plot(X,f0,X,realV,<span class="string">'--'</span>), hold <span class="string">on</span>;
+xlabel (<span class="string">'k'</span>), ylabel (<span class="string">'Value Function at k'</span>);
+grid <span class="string">on</span>, grid <span class="string">minor</span>;
+title(sprintf(<span class="string">'1.(b) Value Function v(k) (N=%d, delta=%.1f, mean resid=%.5f)'</span>, NK, DELTA, mean(meanresidv)));
+
+subplot(2,1,2);
+plot(X,gk,X,realG,<span class="string">'--'</span>), hold <span class="string">on</span>;
+xlabel (<span class="string">'k'</span>), ylabel (<span class="string">'Policy Function at k'</span>);
+grid <span class="string">on</span>, grid <span class="string">minor</span>;
+title(sprintf(<span class="string">'1.(b) Policy Function g(k) (N=%d, delta=%.1f, mean resid=%.5f)'</span>, NK, DELTA, mean(meanresidg)));
+
+saveas(h, <span class="string">'1_b_500.pdf'</span>);
+
+<span class="comment">% delta = 0.1.</span>
+
+DELTA    = 0.1;
+DIF     = 1;
+v1       = zeros(NK,1);
+g1       = zeros(NK,1);
+f0       = zeros(NK,1);
+ITER     = 0;
+KMIN     = 2*Kss/NK;
+KMAX     = 2*Kss;
+X        = (KMIN:(KMAX-KMIN)/(NK-1):KMAX)';
+
+<span class="keyword">while</span> DIF&gt;EPS
+    ITER = ITER + 1;
+
+    <span class="keyword">for</span> i=1:NK
+        gamma =X &lt;= A*X(i)^ALPHA+(1-DELTA)*X(i);
+        kp = X(gamma);
+        kt = ones(length(kp),1)*X(i);
+
+        c = A*kt.^ALPHA+(1-DELTA)*kt-kp;
+        u = log(c);
+
+        f1 = u+BETA*f0(gamma);
+        [v1(i),g1(i)] = max(f1);
+    <span class="keyword">end</span>
+
+    DIF = max(abs(v1-f0));
+    f0 = v1;
+<span class="keyword">end</span>
+
+h=figure(3);
+subplot(2,1,1);
+plot(X,f0), hold <span class="string">on</span>;
+xlabel (<span class="string">'k'</span>), ylabel (<span class="string">'Value Function at k'</span>);
+grid <span class="string">on</span>, grid <span class="string">minor</span>;
+title(sprintf(<span class="string">'1.(c) Value Function v(k) (N=%d, delta=%.1f)'</span>, NK, DELTA));
+
+subplot(2,1,2);
+plot(X,gk), hold <span class="string">on</span>;
+xlabel (<span class="string">'k'</span>), ylabel (<span class="string">'Policy Function at k'</span>);
+grid <span class="string">on</span>, grid <span class="string">minor</span>;
+title(sprintf(<span class="string">'1.(c) Policy Function g(k) (N=%d, delta=%.1f)'</span>, NK, DELTA));
+</pre><img vspace="5" hspace="5" src="valueIteration_01.png" alt=""> <img vspace="5" hspace="5" src="valueIteration_02.png" alt=""> <img vspace="5" hspace="5" src="valueIteration_03.png" alt=""> <p class="footer"><br><a href="https://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2021a</a><br></p></div><!--
+##### SOURCE BEGIN #####
+% Bellman equation v(k) = max u(f(k)-k')+Bv(k')
+% log utility u=log(c) and f(k)=Ak^alpha+(a-delta)k
+% Find the value and policy functions
+
+
+clear all;
+clc;
+
+% Set Variables
+ALPHA    = 0.34; 
+BETA     = 0.99; 
+DELTA    = 0.25;
+A        = 1; 
+Kss     = ((A.*ALPHA)./((1/BETA)-(1-DELTA))).^(1/(1-ALPHA));
+
+% Setting up the grid
+NK       = 100;
+ITER     = 0;
+KMIN     = 2*Kss/NK;          
+KMAX     = 2*Kss;
+X        = (KMIN:(KMAX-KMIN)/(NK-1):KMAX)';
+
+% Analytical values of policy and value functions
+realV    = 4*((4/3)*log(10)+log(3/4)+(1/3)*log(1/4))+(4/9)*log(X);
+realG    = 2.5*X.^ALPHA;
+
+% Initialize a few vectors
+v1       = zeros(NK,1);
+g1       = zeros(NK,1);
+f0       = zeros(NK,1);
+
+% Convergence tolerance
+DIF     = 1;
+EPS      = 1e-6;
+
+while DIF>EPS
+    ITER = ITER + 1;
+    
+    for i=1:NK
+        % Prevent wild values in gamma
+        gamma = X <= A*X(i)^ALPHA+(1-DELTA)*X(i);  
+        kp    = X(gamma);                           
+        kt    = ones(length(kp),1)*X(i);
+        
+        c     = A*kt.^ALPHA+(1-DELTA)*kt-kp;        
+        u     = log(c);                             
+        
+        f1    = u + BETA*f0(gamma);                 
+        [v1(i),g1(i)] = max(f1);
+    end
+    gk = X(g1);
+    DIF = max(abs(v1-f0));
+    meanresidv(ITER) = mean(abs(real(realV-v1)));
+    meanresidg(ITER) = mean(abs(real(realG-gk)));
+    f0 = v1;
+end
+
+h=figure(1);
+subplot(2,1,1);
+plot(X,f0,X,realV,'REPLACE_WITH_DASH_DASH'), hold on;
+xlabel ('k'), ylabel ('Value Function at k');
+grid on, grid minor;
+title(sprintf('1.(b) Value Function v(k) (N=%d, delta=%.1f, mean resid=%.5f)', NK, DELTA, mean(meanresidv)));
+
+subplot(2,1,2);
+plot(X,gk,X,realG,'REPLACE_WITH_DASH_DASH'), hold on;
+xlabel ('k'), ylabel ('Policy Function at k');
+grid on, grid minor;
+title(sprintf('1.(b) Policy Function g(k) (N=%d, delta=%.1f, mean resid=%.5f)', NK, DELTA, mean(meanresidg)));
+
+
+% N = 500.
+
+NK       = 500;                 
+ITER     = 0;                   
+
+KMIN     = 2*Kss/NK;           
+KMAX     = 2*Kss;
+X        = (KMIN:(KMAX-KMIN)/(NK-1):KMAX)';
+
+realV    = 4*((4/3)*log(10)+log(3/4)+(1/3)*log(1/4))+(4/9)*log(X);
+realG    = 2.5*X.^ALPHA;
+
+v1       = zeros(NK,1);
+g1       = zeros(NK,1);
+f0       = zeros(NK,1);
+
+DIF     = 1;
+
+while DIF>EPS
+    ITER = ITER + 1;
+    
+    for i=1:NK
+        gamma = X <= A*X(i)^ALPHA+(1-DELTA)*X(i);   
+        kp    = X(gamma);                           
+        kt    = ones(length(kp),1)*X(i);
+        
+        c     = A*kt.^ALPHA+(1-DELTA)*kt-kp;        
+        u     = log(c);                             
+        
+        f1    = u + BETA*f0(gamma);                 
+        [v1(i),g1(i)] = max(f1);
+    end
+    gk = X(g1);
+    DIF = max(abs(v1-f0));
+    meanresidv(ITER) = mean(abs(real(realV-v1)));
+    meanresidg(ITER) = mean(abs(real(realG-gk)));
+    f0 = v1;
+end
+
+h=figure(2);
+subplot(2,1,1);
+plot(X,f0,X,realV,'REPLACE_WITH_DASH_DASH'), hold on;
+xlabel ('k'), ylabel ('Value Function at k');
+grid on, grid minor;
+title(sprintf('1.(b) Value Function v(k) (N=%d, delta=%.1f, mean resid=%.5f)', NK, DELTA, mean(meanresidv)));
+
+subplot(2,1,2);
+plot(X,gk,X,realG,'REPLACE_WITH_DASH_DASH'), hold on;
+xlabel ('k'), ylabel ('Policy Function at k');
+grid on, grid minor;
+title(sprintf('1.(b) Policy Function g(k) (N=%d, delta=%.1f, mean resid=%.5f)', NK, DELTA, mean(meanresidg)));
+
+saveas(h, '1_b_500.pdf');
+
+% delta = 0.1.
+
+DELTA    = 0.1;
+DIF     = 1;
+v1       = zeros(NK,1);
+g1       = zeros(NK,1);
+f0       = zeros(NK,1);
+ITER     = 0;                   
+KMIN     = 2*Kss/NK;           
+KMAX     = 2*Kss;
+X        = (KMIN:(KMAX-KMIN)/(NK-1):KMAX)';
+
+while DIF>EPS
+    ITER = ITER + 1;
+    
+    for i=1:NK
+        gamma =X <= A*X(i)^ALPHA+(1-DELTA)*X(i);
+        kp = X(gamma);
+        kt = ones(length(kp),1)*X(i);
+        
+        c = A*kt.^ALPHA+(1-DELTA)*kt-kp;
+        u = log(c);
+        
+        f1 = u+BETA*f0(gamma);
+        [v1(i),g1(i)] = max(f1);
+    end
+    
+    DIF = max(abs(v1-f0));
+    f0 = v1;
+end
+
+h=figure(3);
+subplot(2,1,1);
+plot(X,f0), hold on;
+xlabel ('k'), ylabel ('Value Function at k');
+grid on, grid minor;
+title(sprintf('1.(c) Value Function v(k) (N=%d, delta=%.1f)', NK, DELTA));
+
+subplot(2,1,2);
+plot(X,gk), hold on;
+xlabel ('k'), ylabel ('Policy Function at k');
+grid on, grid minor;  
+title(sprintf('1.(c) Policy Function g(k) (N=%d, delta=%.1f)', NK, DELTA));
+
+
+##### SOURCE END #####
+--></body></html>
